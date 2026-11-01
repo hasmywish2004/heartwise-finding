@@ -38,7 +38,11 @@ function Reports() {
 
   function open(u: Upload) {
     const r = routeForStatus(u.status);
-    navigate({ to: `/${r}/$id` as "/findings/$id", params: { id: u.id } });
+    const params = { id: u.id };
+    if (r === "findings") navigate({ to: "/findings/$id", params });
+    else if (r === "confirm") navigate({ to: "/confirm/$id", params });
+    else if (r === "refused") navigate({ to: "/refused/$id", params });
+    else navigate({ to: "/reading/$id", params });
   }
 
   return (

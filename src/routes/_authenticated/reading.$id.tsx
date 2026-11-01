@@ -38,7 +38,6 @@ function Reading() {
     return () => { alive = false; clearInterval(t); };
   }, [id, navigate]);
 
-  const elapsedMs = secs * 1000;
   const step = Math.min(STEPS.length - 1, Math.floor((Date.now() - startRef.current) / 1400));
   const slow = secs >= LIMIT;
 
@@ -64,7 +63,7 @@ function Reading() {
         </div>
         <ol className="mt-5 space-y-3">
           {STEPS.map((s, i) => {
-            const done = i < step || (i === step && elapsedMs > 0 && i < STEPS.length - 1 && false);
+            const done = i < step;
             const active = i === step;
             return (
               <li key={s} className={`flex items-center gap-3 transition-opacity ${i > step ? "opacity-40" : ""}`}>

@@ -10,33 +10,154 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
+import { Route as AuthenticatedConfirmIdRouteImport } from './routes/_authenticated/confirm.$id'
+import { Route as AuthenticatedFindingIdRouteImport } from './routes/_authenticated/finding.$id'
+import { Route as AuthenticatedFindingsIdRouteImport } from './routes/_authenticated/findings.$id'
+import { Route as AuthenticatedReadingIdRouteImport } from './routes/_authenticated/reading.$id'
+import { Route as AuthenticatedRefusedIdRouteImport } from './routes/_authenticated/refused.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConfirmIdRoute = AuthenticatedConfirmIdRouteImport.update({
+  id: '/confirm/$id',
+  path: '/confirm/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFindingIdRoute = AuthenticatedFindingIdRouteImport.update({
+  id: '/finding/$id',
+  path: '/finding/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFindingsIdRoute = AuthenticatedFindingsIdRouteImport.update({
+  id: '/findings/$id',
+  path: '/findings/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReadingIdRoute = AuthenticatedReadingIdRouteImport.update({
+  id: '/reading/$id',
+  path: '/reading/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRefusedIdRoute = AuthenticatedRefusedIdRouteImport.update({
+  id: '/refused/$id',
+  path: '/refused/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/account': typeof AuthenticatedAccountRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/upload': typeof AuthenticatedUploadRoute
+  '/confirm/$id': typeof AuthenticatedConfirmIdRoute
+  '/finding/$id': typeof AuthenticatedFindingIdRoute
+  '/findings/$id': typeof AuthenticatedFindingsIdRoute
+  '/reading/$id': typeof AuthenticatedReadingIdRoute
+  '/refused/$id': typeof AuthenticatedRefusedIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/account': typeof AuthenticatedAccountRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/upload': typeof AuthenticatedUploadRoute
+  '/confirm/$id': typeof AuthenticatedConfirmIdRoute
+  '/finding/$id': typeof AuthenticatedFindingIdRoute
+  '/findings/$id': typeof AuthenticatedFindingsIdRoute
+  '/reading/$id': typeof AuthenticatedReadingIdRoute
+  '/refused/$id': typeof AuthenticatedRefusedIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/upload': typeof AuthenticatedUploadRoute
+  '/_authenticated/confirm/$id': typeof AuthenticatedConfirmIdRoute
+  '/_authenticated/finding/$id': typeof AuthenticatedFindingIdRoute
+  '/_authenticated/findings/$id': typeof AuthenticatedFindingsIdRoute
+  '/_authenticated/reading/$id': typeof AuthenticatedReadingIdRoute
+  '/_authenticated/refused/$id': typeof AuthenticatedRefusedIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/account'
+    | '/reports'
+    | '/upload'
+    | '/confirm/$id'
+    | '/finding/$id'
+    | '/findings/$id'
+    | '/reading/$id'
+    | '/refused/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/account'
+    | '/reports'
+    | '/upload'
+    | '/confirm/$id'
+    | '/finding/$id'
+    | '/findings/$id'
+    | '/reading/$id'
+    | '/refused/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/account'
+    | '/_authenticated/reports'
+    | '/_authenticated/upload'
+    | '/_authenticated/confirm/$id'
+    | '/_authenticated/finding/$id'
+    | '/_authenticated/findings/$id'
+    | '/_authenticated/reading/$id'
+    | '/_authenticated/refused/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +169,108 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/upload': {
+      id: '/_authenticated/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof AuthenticatedUploadRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/confirm/$id': {
+      id: '/_authenticated/confirm/$id'
+      path: '/confirm/$id'
+      fullPath: '/confirm/$id'
+      preLoaderRoute: typeof AuthenticatedConfirmIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/finding/$id': {
+      id: '/_authenticated/finding/$id'
+      path: '/finding/$id'
+      fullPath: '/finding/$id'
+      preLoaderRoute: typeof AuthenticatedFindingIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/findings/$id': {
+      id: '/_authenticated/findings/$id'
+      path: '/findings/$id'
+      fullPath: '/findings/$id'
+      preLoaderRoute: typeof AuthenticatedFindingsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reading/$id': {
+      id: '/_authenticated/reading/$id'
+      path: '/reading/$id'
+      fullPath: '/reading/$id'
+      preLoaderRoute: typeof AuthenticatedReadingIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/refused/$id': {
+      id: '/_authenticated/refused/$id'
+      path: '/refused/$id'
+      fullPath: '/refused/$id'
+      preLoaderRoute: typeof AuthenticatedRefusedIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
+  AuthenticatedConfirmIdRoute: typeof AuthenticatedConfirmIdRoute
+  AuthenticatedFindingIdRoute: typeof AuthenticatedFindingIdRoute
+  AuthenticatedFindingsIdRoute: typeof AuthenticatedFindingsIdRoute
+  AuthenticatedReadingIdRoute: typeof AuthenticatedReadingIdRoute
+  AuthenticatedRefusedIdRoute: typeof AuthenticatedRefusedIdRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedUploadRoute: AuthenticatedUploadRoute,
+  AuthenticatedConfirmIdRoute: AuthenticatedConfirmIdRoute,
+  AuthenticatedFindingIdRoute: AuthenticatedFindingIdRoute,
+  AuthenticatedFindingsIdRoute: AuthenticatedFindingsIdRoute,
+  AuthenticatedReadingIdRoute: AuthenticatedReadingIdRoute,
+  AuthenticatedRefusedIdRoute: AuthenticatedRefusedIdRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
