@@ -110,7 +110,7 @@ function DoubtSheet({ findingId, onClose }: { findingId: string; onClose: () => 
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);

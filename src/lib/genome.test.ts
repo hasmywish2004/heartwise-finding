@@ -7,7 +7,7 @@ const trace =
 describe("evidence checks", () => {
   it("passes all four for a good trace", () => {
     expect(parseChecks(trace)!.map((c) => c.pass)).toEqual([true, true, true, true]);
-    expect(parseChecks(trace)![2].name).toBe("3 lab reports");
+    expect(parseChecks(trace)![2]!.name).toBe("3 lab reports");
   });
   it("fails labs agree when conflicting", () => {
     expect(parseChecks("review=conflicting; submissions=1; year=2015; age=10y")!.map((c) => c.pass)).toEqual([false, false, false, false]);

@@ -20,7 +20,7 @@ function Account() {
     (async () => {
       const { data } = await supabase.auth.getUser();
       setEmail(data.user?.email ?? "");
-      setName((data.user?.user_metadata?.full_name as string) ?? "");
+      setName((data.user?.user_metadata?.["full_name"] as string) ?? "");
       const [u, f, r] = await Promise.all([
         supabase.from("uploads").select("id", { count: "exact", head: true }),
         supabase.from("findings").select("id", { count: "exact", head: true }),

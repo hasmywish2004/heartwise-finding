@@ -16,12 +16,12 @@ export function parseChecks(ruleTrace: string | null | undefined, label?: string
   const age = t.match(/age=(\d+(?:\.\d+)?)/);
   const year = t.match(/year=(\d{4})/);
   const subs = t.match(/submissions=(\d+)/);
-  const n = subs ? parseInt(subs[1], 10) : 0;
+  const n = subs ? parseInt(subs[1]!, 10) : 0;
   return [
     { name: "Labs agree", pass: !t.includes("conflicting") },
     {
       name: "Checked in the last 5 years",
-      pass: (!!age && parseFloat(age[1]) <= 5) || (!!year && parseInt(year[1], 10) >= 2021),
+      pass: (!!age && parseFloat(age[1]!) <= 5) || (!!year && parseInt(year[1]!, 10) >= 2021),
     },
     { name: `${n} lab report${n === 1 ? "" : "s"}`, pass: n >= 2 },
     { name: "South Asian data", pass: t.includes("sas checked") },
@@ -31,7 +31,7 @@ export function parseChecks(ruleTrace: string | null | undefined, label?: string
 export function extractApoe(headlines: (string | null)[]): string | null {
   for (const h of headlines) {
     const m = h?.match(/APOE type is\s+([A-Za-z0-9/εe]+)/i);
-    if (m) return m[1].replace(/[.,;]$/, "");
+    if (m) return m[1]!.replace(/[.,;]$/, "");
   }
   return null;
 }
@@ -46,7 +46,7 @@ export function extractMarker(headline: string | null): string {
 export function extractPct(population: string | null): number | null {
   const m = population?.match(/(\d+(?:\.\d+)?)\s*%/);
   if (!m) return null;
-  return Math.max(0, Math.min(100, Math.round(parseFloat(m[1]))));
+  return Math.max(0, Math.min(100, Math.round(parseFloat(m[1]!))));
 }
 
 export function plainClassification(c: string | null): string {
