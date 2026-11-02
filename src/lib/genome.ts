@@ -79,3 +79,14 @@ export function routeForStatus(status: string): "findings" | "confirm" | "refuse
   if (status === "refused") return "refused";
   return "reading";
 }
+
+export const GENE_INFO: Record<string, string> = {
+  APOE: 'The cholesterol-carrier gene. It helps move cholesterol through your blood. Certain combinations affect heart disease risk and, separately, memory risk later in life.',
+  LDLR: 'The cholesterol-cleaner gene. It pulls LDL ("bad") cholesterol out of your blood. Some changes to it cause an inherited form of very high cholesterol.',
+  PCSK9: 'The cholesterol-control gene. It controls how many cholesterol-cleaners your liver keeps active. Some cholesterol medicines work by blocking it.',
+  MYBPC3: 'The heart-muscle gene. It helps your heart muscle squeeze properly. Certain changes can thicken the heart muscle (a condition called cardiomyopathy).',
+};
+
+export function extractGene(headline: string | null): string | null {
+  return headline?.match(/\b([A-Z][A-Z0-9]{1,9})\b/)?.[1] ?? null;
+}

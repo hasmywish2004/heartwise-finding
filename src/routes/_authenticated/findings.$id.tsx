@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, CheckBars, Collapse, CountUp, FadeUp, Icon, LabelChip, LabelTile, Spinner } from "@/components/kit";
-import { extractApoe, extractMarker, LABEL_NAMES, parseChecks, type LabelKey } from "@/lib/genome";
+import { extractApoe, extractGene, extractMarker, GENE_INFO, LABEL_NAMES, parseChecks, type LabelKey } from "@/lib/genome";
 import { supabase, type Finding, type Upload } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_authenticated/findings/$id")({
@@ -27,6 +27,7 @@ function Findings() {
   }, [id]);
 
   const apoe = rows ? extractApoe(rows.map((r) => r.headline)) : null;
+  const genes = rows ? [...new Set(rows.map((r) => extractGene(r.headline)).filter((g): g is string => !!g))] : [];
 
   return (
     <AppShell>
@@ -51,6 +52,10 @@ function Findings() {
             )}
           </div>
 
+          <p className="mt-4 t-small text-muted-foreground">
+            We check against South Asian genetic data (gnomAD). If that isn't your background, a label still holds — but the population percentages below may not describe you.
+          </p>
+
           <div className="mt-6">
             <Collapse title="What the labels mean">
               <ul className="space-y-3">
@@ -64,6 +69,22 @@ function Findings() {
             </Collapse>
           </div>
 
+          {genes.length > 0 && (
+            <div className="mt-4">
+              <Collapse title="What these genes do">
+                <ul className="space-y-3">
+                  {genes.map((g) => (
+                    <li key={g}>
+                      <p className="font-semibold text-ink">{g}</p>
+                      {GENE_INFO[g] && <p className="t-small">{GENE_INFO[g]}</p>}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 t-small text-muted-foreground">The code after each gene (like rs7412) is the exact spot in your DNA being discussed — not the result itself.</p>
+              </Collapse>
+            </div>
+          )}
+
           <ul className="mt-4 space-y-3">
             {rows.map((f, i) => {
               const checks = parseChecks(f.rule_trace, f.label);
@@ -76,6 +97,11 @@ function Findings() {
                         <span className="num t-small text-muted-foreground">{extractMarker(f.headline)}</span>
                       </div>
                       <p className="t-card mt-3">{f.headline}</p>
+                      {f.is_stale && (
+                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-bg px-2 py-0.5 t-small font-semibold text-amber">
+                          <Icon.Alert size={12} /> Classification changed since this was shown
+                        </span>
+                      )}
                       {checks && <div className="mt-4"><CheckBars checks={checks} /></div>}
                       <span className="mt-3 inline-flex items-center gap-1 t-small text-primary">See the evidence <Icon.Arrow size={16} /></span>
                     </Link>

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, CheckList, Collapse, DotGrid, FadeUp, Icon, LabelChip, Spinner } from "@/components/kit";
-import { extractMarker, extractPct, parseChecks, sourceLabel } from "@/lib/genome";
+import { extractGene, extractMarker, extractPct, GENE_INFO, parseChecks, sourceLabel } from "@/lib/genome";
 import { supabase, type Finding } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_authenticated/finding/$id")({
@@ -31,6 +31,7 @@ function FindingPage() {
   const checks = parseChecks(f.rule_trace, f.label);
   const pct = extractPct(f.population);
   const urls = Array.isArray(f.source_urls) ? f.source_urls : [];
+  const gene = extractGene(f.headline);
 
   return (
     <AppShell>
@@ -39,8 +40,19 @@ function FindingPage() {
           <LabelChip label={f.label} />
           <span className="num t-small text-muted-foreground">{extractMarker(f.headline)}</span>
         </div>
+        {f.is_stale && (
+          <p className="mt-3 flex gap-2 rounded-xl bg-amber-bg p-3 t-small text-amber">
+            <Icon.Alert size={18} className="mt-0.5 shrink-0" />
+            The database's classification changed since this was first shown — it was "{f.previous_classification}", now "{f.classification}".
+          </p>
+        )}
         <h1 className="t-title mt-4">{f.headline}</h1>
         {checks && <div className="mt-5"><CheckList checks={checks} /></div>}
+        {checks && (
+          <p className="mt-3 t-small text-muted-foreground">
+            Something look off? Use "I don't believe this" at the bottom — every answer is read, not just logged.
+          </p>
+        )}
 
         {f.supports && (
           <section className="mt-7">
@@ -55,7 +67,22 @@ function FindingPage() {
           </section>
         )}
         {f.evidence_age && <p className="mt-6 t-small text-muted-foreground">{f.evidence_age}</p>}
+        {f.checked_at && (
+          <p className="mt-2 t-small text-muted-foreground">
+            Checked again on {new Date(f.checked_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}.
+          </p>
+        )}
       </article>
+
+      {gene && (
+        <div className="mt-4">
+          <Collapse title="What these genes do">
+            <p className="font-semibold text-ink">{gene}</p>
+            {GENE_INFO[gene] && <p className="t-small">{GENE_INFO[gene]}</p>}
+            <p className="mt-3 t-small text-muted-foreground">The code after each gene (like rs7412) is the exact spot in your DNA being discussed — not the result itself.</p>
+          </Collapse>
+        </div>
+      )}
 
       {f.population && (
         <FadeUp i={1} className="card mt-4 p-5 md:p-8">
