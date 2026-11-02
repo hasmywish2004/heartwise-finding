@@ -15,13 +15,17 @@ function Confirm() {
   const [rows, setRows] = useState<Observation[] | null>(null);
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ gene: "", hgvs_c: "", lab_classification: "" });
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("observations").select("*").eq("upload_id", id).order("created_at").then(({ data }) => setRows((data ?? []) as Observation[]));
   }, [id]);
 
   const total = rows?.length ?? 0;
-  const count = Object.values(ok).filter(Boolean).length;
+  const count = rows?.filter((r) => ok[r.id]).length ?? 0;
   const all = total > 0 && count === total;
 
   async function go() {
@@ -31,11 +35,40 @@ function Confirm() {
     navigate({ to: "/reading/$id", params: { id } });
   }
 
+  function startEdit(o: Observation) {
+    setEditing(o.id);
+    setDraft({ gene: o.gene ?? "", hgvs_c: o.hgvs_c ?? "", lab_classification: o.lab_classification ?? "" });
+    setRemoving(null);
+  }
+
+  async function saveEdit(o: Observation) {
+    setSaving(true);
+    const gene = draft.gene.trim() || null;
+    const hgvs_c = draft.hgvs_c.trim() || null;
+    const lab_classification = draft.lab_classification.trim() || null;
+    await supabase.from("observations").update({ gene, hgvs_c, lab_classification }).eq("id", o.id);
+    setRows((rs) => (rs ?? []).map((r) => (r.id === o.id ? { ...r, gene, hgvs_c, lab_classification } : r)));
+    setOk((prev) => ({ ...prev, [o.id]: false }));
+    setSaving(false);
+    setEditing(null);
+  }
+
+  async function removeRow(o: Observation) {
+    await supabase.from("observations").delete().eq("id", o.id);
+    setRows((rs) => (rs ?? []).filter((r) => r.id !== o.id));
+    setOk((prev) => {
+      const next = { ...prev };
+      delete next[o.id];
+      return next;
+    });
+    setRemoving(null);
+  }
+
   return (
     <AppShell>
       <h1 className="t-title fade-up">Does this match your report?</h1>
-      <p className="mt-2 fade-up">An AI read the table in your report. Check each row against your paper copy. Nothing is looked up until you confirm.</p>
-      <p className="mt-4 flex gap-2 rounded-xl bg-amber-bg p-3 t-small text-amber"><Icon.Alert size={18} className="mt-0.5 shrink-0" />One wrong letter would give you someone else's evidence.</p>
+      <p className="mt-2 fade-up">This is the one step a person checks — you. An AI read the table in your report; everything after this is decided by fixed rules, not another review. Check each row against your paper copy before anything is looked up.</p>
+      <p className="mt-4 flex gap-2 rounded-xl bg-amber-bg p-3 t-small text-amber"><Icon.Alert size={18} className="mt-0.5 shrink-0" />One wrong letter would give you someone else's evidence — that's why this step exists.</p>
 
       {rows === null ? <Spinner /> : (
         <>
