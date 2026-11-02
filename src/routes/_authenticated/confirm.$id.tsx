@@ -86,10 +86,45 @@ function Confirm() {
                     {o.lab_classification && (
                       <p className="mt-3">Your lab says <strong className="text-ink">{o.lab_classification}</strong>{plain && <span className="text-muted-foreground"> — {plain}</span>}</p>
                     )}
-                    <button type="button" aria-pressed={on} onClick={() => setOk({ ...ok, [o.id]: !on })}
-                      className={`btn mt-4 w-full sm:w-auto ${on ? "bg-strong-bg text-strong" : "btn-secondary"}`}>
-                      {on ? <><Icon.Tick size={18} strokeWidth={2.6} />Matches</> : "Confirm"}
-                    </button>
+                    {editing === o.id ? (
+                      <div className="mt-4 space-y-3 rounded-xl border bg-background p-4">
+                        <label className="block t-small text-muted-foreground">
+                          Gene
+                          <input className="field mt-1" value={draft.gene} onChange={(e) => setDraft({ ...draft, gene: e.target.value })} />
+                        </label>
+                        <label className="block t-small text-muted-foreground">
+                          DNA spelling code (hgvs_c)
+                          <input className="field mt-1 font-mono" value={draft.hgvs_c} onChange={(e) => setDraft({ ...draft, hgvs_c: e.target.value })} />
+                        </label>
+                        <label className="block t-small text-muted-foreground">
+                          What your lab says
+                          <input className="field mt-1" value={draft.lab_classification} onChange={(e) => setDraft({ ...draft, lab_classification: e.target.value })} />
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" disabled={saving} onClick={() => saveEdit(o)} className="btn btn-primary flex-1 sm:flex-none">
+                            {saving ? "Saving…" : "Save"}
+                          </button>
+                          <button type="button" onClick={() => setEditing(null)} className="btn btn-ghost flex-1 sm:flex-none">Cancel</button>
+                        </div>
+                      </div>
+                    ) : removing === o.id ? (
+                      <div className="mt-4 rounded-xl border border-dashed border-cantsay-border p-4">
+                        <p className="t-small text-ink">Are you sure? This row will be removed and never looked up.</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => removeRow(o)} className="btn btn-outline flex-1 sm:flex-none">Yes, remove it</button>
+                          <button type="button" onClick={() => setRemoving(null)} className="btn btn-ghost flex-1 sm:flex-none">Keep</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" aria-pressed={on} onClick={() => setOk({ ...ok, [o.id]: !on })}
+                          className={`btn flex-1 sm:flex-none ${on ? "bg-strong-bg text-strong" : "btn-secondary"}`}>
+                          {on ? <><Icon.Tick size={18} strokeWidth={2.6} />Matches</> : "Confirm"}
+                        </button>
+                        <button type="button" onClick={() => startEdit(o)} className="btn btn-secondary flex-1 sm:flex-none">Fix</button>
+                        <button type="button" onClick={() => { setRemoving(o.id); setEditing(null); }} className="btn btn-ghost flex-1 sm:flex-none">Not on my report</button>
+                      </div>
+                    )}
                   </li>
                 </FadeUp>
               );
