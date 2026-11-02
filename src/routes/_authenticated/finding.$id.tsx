@@ -120,7 +120,10 @@ function DoubtSheet({ findingId, onClose }: { findingId: string; onClose: () => 
     const full = extra.trim() ? `${reason}: ${extra.trim()}` : reason;
     const { error } = await supabase.from("rejections").insert({ finding_id: findingId, reason: full });
     setBusy(false);
-    if (error) return toast.error("That didn't save. Please try again.");
+    if (error) {
+      toast.error("That didn't save. Please try again.");
+      return;
+    }
     onClose();
     toast.success("Thanks — we saved that.");
   }
