@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AppShell, FadeUp, Icon, Spinner } from "@/components/kit";
 import { plainClassification } from "@/lib/genome";
 import { ANALYSE, fireWebhook, supabase, type Observation } from "@/lib/supabase";
@@ -46,7 +47,12 @@ function Confirm() {
     const gene = draft.gene.trim() || null;
     const hgvs_c = draft.hgvs_c.trim() || null;
     const lab_classification = draft.lab_classification.trim() || null;
-    await supabase.from("observations").update({ gene, hgvs_c, lab_classification }).eq("id", o.id);
+    const { error } = await supabase.from("observations").update({ gene, hgvs_c, lab_classification }).eq("id", o.id);
+    if (error) {
+      setSaving(false);
+      toast.error("That didn't save. Please try again.");
+      return;
+    }
     setRows((rs) => (rs ?? []).map((r) => (r.id === o.id ? { ...r, gene, hgvs_c, lab_classification } : r)));
     setOk((prev) => ({ ...prev, [o.id]: false }));
     setSaving(false);
@@ -54,7 +60,11 @@ function Confirm() {
   }
 
   async function removeRow(o: Observation) {
-    await supabase.from("observations").delete().eq("id", o.id);
+    const { error } = await supabase.from("observations").delete().eq("id", o.id);
+    if (error) {
+      toast.error("That didn't save. Please try again.");
+      return;
+    }
     setRows((rs) => (rs ?? []).filter((r) => r.id !== o.id));
     setOk((prev) => {
       const next = { ...prev };

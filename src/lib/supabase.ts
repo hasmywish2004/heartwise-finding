@@ -62,5 +62,9 @@ export type Finding = {
   source_urls: string[] | null;
   rule_trace: string | null;
   sort_order: number | null;
+  is_stale: boolean | null;
+  previous_classification: string | null;
+  classification: string | null;
+  checked_at: string | null;
   created_at: string;
 };
