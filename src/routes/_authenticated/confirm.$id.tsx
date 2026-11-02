@@ -130,6 +130,7 @@ function Confirm() {
               );
             })}
           </ul>
+          <p className="mt-4 t-small text-muted-foreground">If a row is wrong, fix it or remove it. We only look up what you confirm.</p>
           <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-card/95 py-3 backdrop-blur">
             <div className="container-app max-w-[760px]">
               <button type="button" disabled={!all || busy} onClick={go} className="btn btn-primary w-full">
