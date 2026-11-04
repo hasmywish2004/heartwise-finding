@@ -122,3 +122,25 @@ function Findings() {
     </AppShell>
   );
 }
+
+function PdfButton({ upload, rows }: { upload: Upload | null; rows: Finding[] }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+  async function go() {
+    setBusy(true); setErr(false);
+    try {
+      const { buildReportPdf, downloadBlob } = await import("@/lib/report-pdf");
+      const blob = await buildReportPdf(upload, rows);
+      downloadBlob(blob, `heart-health-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch { setErr(true); } finally { setBusy(false); }
+  }
+  return (
+    <div className="mt-6">
+      <button type="button" onClick={go} disabled={busy} className="btn btn-secondary inline-flex min-h-[48px] w-full items-center justify-center gap-2 md:w-auto">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" /></svg>
+        {busy ? "Making your report..." : "Download PDF report"}
+      </button>
+      {err && <p role="alert" className="mt-2 t-small text-amber">That didn't work. Please try again.</p>}
+    </div>
+  );
+}
