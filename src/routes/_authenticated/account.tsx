@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AppShell, CountUp, FadeUp, Icon } from "@/components/kit";
 import { supabase } from "@/lib/supabase";
 
@@ -38,7 +39,19 @@ function Account() {
   async function del() {
     setBusy(true);
     const { data } = await supabase.auth.getUser();
-    if (data.user) await supabase.from("uploads").delete().eq("user_id", data.user.id);
+    if (data.user) {
+      const { data: rows } = await supabase.from("uploads").select("storage_path");
+      const paths = (rows ?? []).map((r) => r.storage_path as string).filter(Boolean);
+      if (paths.length > 0) {
+        const { error } = await supabase.storage.from("dna-uploads").remove(paths);
+        if (error) {
+          setBusy(false);
+          toast.error("That didn't work. Please try again.");
+          return;
+        }
+      }
+      await supabase.from("uploads").delete().eq("user_id", data.user.id);
+    }
     await logout();
   }
 
@@ -73,10 +86,11 @@ function Account() {
       <div className="mt-6 flex flex-col gap-3">
         <button type="button" onClick={logout} className="btn btn-secondary">Log out</button>
         {!confirm ? (
-          <button type="button" onClick={() => setConfirm(true)} className="btn btn-ghost text-amber">Delete my account and all data</button>
+          <button type="button" onClick={() => setConfirm(true)} className="btn btn-ghost text-amber">Delete my files and findings</button>
         ) : (
           <div className="rounded-2xl border border-amber-tile bg-amber-bg p-5">
             <p className="font-semibold text-amber">Delete every file and finding? This can't be undone.</p>
+            <p className="mt-1 t-small text-amber">Your login stays active so you can upload again later.</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setConfirm(false)} className="btn btn-secondary">Keep my data</button>
               <button type="button" disabled={busy} onClick={del} className="btn bg-amber-tile text-primary-foreground">{busy ? "Deleting…" : "Yes, delete"}</button>
