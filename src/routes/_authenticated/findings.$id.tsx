@@ -111,6 +111,8 @@ function Findings() {
             })}
           </ul>
 
+          {rows.length > 0 && <PdfButton upload={upload} rows={rows} />}
+
           <p className="mt-6 flex gap-3 rounded-2xl border border-tint-border bg-tint p-4 text-ink">
             <Icon.Info size={20} className="mt-0.5 shrink-0 text-primary" />
             If high cholesterol or early heart attacks run in your family, talk to a doctor — whatever these cards say.
