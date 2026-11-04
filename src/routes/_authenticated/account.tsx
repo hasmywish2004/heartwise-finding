@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AppShell, CountUp, FadeUp, Icon } from "@/components/kit";
 import { supabase } from "@/lib/supabase";
 
