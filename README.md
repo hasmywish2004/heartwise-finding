@@ -2,7 +2,7 @@
 
 Reads a raw DNA file or a lab report and returns **two to five heart-health findings you can argue with**, instead of a long report you have to believe.
 
-**Live:** `<add your URL>` · **Demo video:** `<add link>` · **Write-up:** `<add link>`
+**Live:** <https://heartwise-finding.lovable.app> · **Demo video:** `<add link>` · **Write-up:** `<add link>`
 
 > This is not a diagnosis and does not replace a doctor. It is built for understanding.
 
@@ -10,7 +10,7 @@ Reads a raw DNA file or a lab report and returns **two to five heart-health find
 
 ## The problem this is answering
 
-A consumer DNA file holds millions of variants. The public databases that say what those variants mean often disagree with each other — roughly **41% of ClinVar entries are uncertain or conflicting**<!-- SOURCE NEEDED: add your citation link here before publishing -->. Most of the research behind risk scores was also done on people of European ancestry, so it fits a South Asian user less well.
+A consumer DNA file holds millions of variants. The public databases that say what those variants mean often disagree with each other. A large share of ClinVar's records are filed as "uncertain significance", and many more carry submissions from different labs that contradict each other. Rather than quote a figure that will be out of date by the time you read this, here is the query — [count them yourself](https://www.ncbi.nlm.nih.gov/clinvar/?term=%22uncertain+significance%22%5BCLIN%5D). Most of the research behind risk scores was also done on people of European ancestry, so it fits a South Asian user less well.
 
 A ranked list of fifty findings hides all of that and makes it look settled.
 
