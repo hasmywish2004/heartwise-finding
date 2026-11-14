@@ -1,0 +1,176 @@
+{
+  "name": "Genome - 0. Test Harness",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "genome-test-upload",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "8c603edf-555e-4da5-8054-fa6716a5a2b0",
+      "name": "Receive Test File",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "4d338c2d-94cd-45db-a435-3a65d3b54c60"
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst b = j.body || j;\nconst buf = b.content_base64 ? Buffer.from(b.content_base64, \"base64\") : Buffer.from(b.content_text || \"\", \"utf8\");\nconst safe = String(b.filename || \"file.bin\").replace(/[^A-Za-z0-9._-]/g, \"_\");\nconst storagePath = \"tests/\" + Date.now() + \"_\" + safe;\nconst bin = await this.helpers.prepareBinaryData(buf, safe, b.mime || \"application/octet-stream\");\nreturn [{ json: { filename: safe, storage_path: storagePath, bytes: buf.length, mime: b.mime || \"application/octet-stream\" }, binary: { data: bin } }];"
+      },
+      "id": "2a06afca-e684-48c5-9845-04b89bac3eee",
+      "name": "Make File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/storage/v1/object/dna-uploads/{{ $json.storage_path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "={{ $json.mime }}"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "7cdf66fc-d159-462c-b26e-88c0d563d129",
+      "name": "Upload To Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filename: $(\"Make File\").first().json.filename, storage_path: $(\"Make File\").first().json.storage_path, detected_type: \"unknown\", path: \"A\", status: \"received\" }) }}",
+        "options": {}
+      },
+      "id": "4d95d2d3-f9e5-4cb5-b6db-8ed2ebca4c9b",
+      "name": "Create Upload Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        656,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Test harness only\n\nThe real app uploads from Lovable. This exists so files can be pushed in for testing without the front end. Safe to delete after the capstone.",
+        "height": 224,
+        "width": 816,
+        "color": 7
+      },
+      "id": "411282f7-8706-4d59-b843-c6bfdf966cc3",
+      "name": "Sticky Note 2b450c1d",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -96
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Test File": {
+      "main": [
+        [
+          {
+            "node": "Make File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make File": {
+      "main": [
+        [
+          {
+            "node": "Upload To Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload To Storage": {
+      "main": [
+        [
+          {
+            "node": "Create Upload Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "55f10ea9-635c-4e21-b0ad-ff58db650c06",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "72cd8a9c585fc491d37ca0e0193e20ba9be3f77efc223c1299d366e51dcafe33"
+  },
+  "nodeGroups": [],
+  "id": "41mZy1ZSUCSBKwfj",
+  "tags": []
+}

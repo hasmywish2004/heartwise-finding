@@ -1,0 +1,860 @@
+{
+  "name": "Genome - 2. Analyse",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "c92b0879-d1f7-4ccf-be27-224769db6344",
+      "name": "Called by Path A",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "uid",
+              "name": "upload_id",
+              "value": "={{ $json.body?.upload_id ?? $json.upload_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5bfcf98d-3cb4-4c0b-913f-0948139b5bb3",
+      "name": "Read Upload Id",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "genome-analyse",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "8b343039-0624-4364-97cc-82a3eab125ba",
+      "name": "User Confirmed Extraction",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        320
+      ],
+      "webhookId": "647c1624-a95c-4f72-9a03-58898ec02da5"
+    },
+    {
+      "parameters": {
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/observations?upload_id=eq.{{ $json.upload_id }}&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "32b8396b-ef4b-4360-954c-571a1d84c56f",
+      "name": "Load Observations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        464,
+        160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.user_confirmed }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "879f1103-6acc-4c86-8678-19ee5449faee",
+      "name": "Confirmed By User?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        688,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of $(\"Confirmed By User?\").all()) {\n  const o = item.json;\n  const build = o.genome_build || \"GRCh37\";\n  const notCovered = (o.source === \"dna_file\") && (o.genotype === null || o.genotype === \"\" || o.genotype === undefined);\n  let key;\n  let term;\n  let gnomadId = \"0-0-N-N\";\n  let altCopies = null;\n  if (o.source === \"dna_file\") {\n    key = build + \":\" + o.chrom + \":\" + o.pos + \":\" + o.ref + \":\" + o.alt;\n    term = o.rsid ? o.rsid : (o.gene || \"\");\n    if (o.chrom && o.pos && o.ref && o.alt) {\n      gnomadId = String(o.chrom) + \"-\" + String(o.pos) + \"-\" + o.ref + \"-\" + o.alt;\n    }\n    if (!notCovered && o.alt) {\n      altCopies = String(o.genotype).toUpperCase().split(\"\").filter(function (c) { return c === String(o.alt).toUpperCase(); }).length;\n    }\n  } else {\n    key = (o.gene || \"UNKNOWN\") + \":\" + (o.hgvs_c || o.hgvs_p || \"\");\n    term = (o.gene || \"\") + \"[gene] AND \" + (o.hgvs_c || o.hgvs_p || \"\");\n  }\n  out.push({ json: Object.assign({}, o, {\n    variant_key: key,\n    clinvar_term: term,\n    gnomad_id: gnomadId,\n    has_coordinates: gnomadId !== \"0-0-N-N\",\n    not_covered: notCovered,\n    alt_copies: altCopies\n  }) });\n}\nreturn out;"
+      },
+      "id": "fe7714c2-71b4-48d5-85d3-1189ee803d6b",
+      "name": "Build Variant Keys",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "db",
+              "value": "clinvar"
+            },
+            {
+              "name": "retmode",
+              "value": "json"
+            },
+            {
+              "name": "retmax",
+              "value": "20"
+            },
+            {
+              "name": "term",
+              "value": "={{ $(\"Build Variant Keys\").item.json.clinvar_term }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1100
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "e92708d3-edaf-4c00-9ec1-6be267dffd47",
+      "name": "Search ClinVar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "db",
+              "value": "clinvar"
+            },
+            {
+              "name": "retmode",
+              "value": "json"
+            },
+            {
+              "name": "id",
+              "value": "={{ ($json.esearchresult?.idlist ?? []).length ? $json.esearchresult.idlist.join(',') : '0' }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1100
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "8d5b6688-bbe2-449e-99f9-87c632272211",
+      "name": "Get ClinVar Records",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1344,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const picks = $(\"Pick ClinVar Record\").all();\nconst gno = $input.all();\nlet cacheRows = [];\ntry {\n  const c = $(\"Load Cached Evidence\").all();\n  for (const r of c) { if (r.json && r.json.variant_key) { cacheRows.push(r.json); } }\n} catch (e) { cacheRows = []; }\nconst cacheByKey = {};\nfor (const r of cacheRows) { if (!cacheByKey[r.variant_key] && r.classification) { cacheByKey[r.variant_key] = r; } }\nfunction tidyConditions(s) {\n  if (!s) { return null; }\n  const keep = String(s).split(\"; \").filter(function (t) { const l = t.toLowerCase(); return l !== \"not specified\" && l !== \"not provided\"; });\n  if (keep.length === 0) { return null; }\n  return keep.length > 3 ? (keep.slice(0, 3).join(\"; \") + \" and \" + (keep.length - 3) + \" more\") : keep.join(\"; \");\n}\nconst out = [];\nfor (let i = 0; i < picks.length; i++) {\n  const p = picks[i].json;\n  let classification = p.classification;\n  let lastEval = p.last_evaluated;\n  let review = p.review_status;\n  let scv = p.scv_count || 0;\n  let conditions = tidyConditions(p.conditions);\n  let sourceUrl = p.source_url;\n  let lookupStatus = p.lookup_status;\n  if (lookupStatus === \"failed\") {\n    const cached = cacheByKey[p.variant_key];\n    if (cached) {\n      classification = cached.classification; lastEval = cached.last_evaluated; review = cached.review_status;\n      scv = cached.submitter_count || 0; conditions = cached.conditions; sourceUrl = cached.source_url || sourceUrl;\n      lookupStatus = \"from_cache\";\n    }\n  }\n  const conflicting = String(classification || \"\").toLowerCase().indexOf(\"conflicting\") !== -1;\n  let sasText = null; let sasAf = null; let gnomadFound = false; let gnomadUrl = null;\n  if (p.not_covered) {\n    sasText = \"Not applicable - this position was not present in the uploaded file.\";\n  } else if (!p.gnomad_id38 || p.gnomad_id38 === \"none\") {\n    sasText = \"We could not pin this change to an exact genome position, so its South Asian frequency was not looked up.\";\n  } else {\n    const gresp = (gno[i] && gno[i].json) ? gno[i].json : {};\n    const v = (gresp.data && gresp.data.variant) ? gresp.data.variant : null;\n    if (!v) {\n      sasText = \"gnomAD (v4) has no record of this exact change, so no South Asian frequency could be checked.\";\n    } else {\n      gnomadFound = true;\n      gnomadUrl = \"https://gnomad.broadinstitute.org/variant/\" + p.gnomad_id38 + \"?dataset=gnomad_r4\";\n      let ac = 0; let an = 0;\n      for (const s of [v.genome, v.exome]) {\n        if (s && s.populations) { for (const q of s.populations) { if (q.id === \"sas\") { ac += (q.ac || 0); an += (q.an || 0); } } }\n      }\n      if (an > 0) {\n        sasAf = ac / an;\n        const pct = Math.round(sasAf * 1000) / 10;\n        sasText = \"In gnomAD v4, \" + pct + \"% of South Asian chromosomes carry this change (\" + ac + \" of \" + an + \").\";\n      } else {\n        sasText = \"gnomAD v4 lists this change but has no South Asian samples at this position.\";\n      }\n    }\n  }\n  out.push({ json: {\n    observation_id: p.id, upload_id: p.upload_id, variant_key: p.variant_key, source: \"clinvar\",\n    classification: classification, submitter_count: scv, is_conflicting: conflicting,\n    last_evaluated: lastEval, review_status: review, conditions: conditions, source_url: sourceUrl,\n    lookup_status: lookupStatus, clinvar_candidates: p.clinvar_candidates,\n    not_covered: p.not_covered === true, gene: p.gene, rsid: p.rsid, genotype: p.genotype,\n    ref: p.ref, alt: p.alt, alt_copies: p.alt_copies, hgvs_c: p.hgvs_c, hgvs_p: p.hgvs_p,\n    zygosity: p.zygosity, lab_classification: p.lab_classification, obs_source: p.source,\n    sas_text: sasText, sas_af: sasAf, gnomad_found: gnomadFound, gnomad_url: gnomadUrl\n  } });\n}\nreturn out;"
+      },
+      "id": "d73a6a0b-2a80-407d-ae4a-ac9ab9d84f5e",
+      "name": "Shape Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mnbafonstnhdybonknap.supabase.co/rest/v1/evidence",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ variant_key: $json.variant_key, source: $json.source, classification: $json.classification, submitter_count: $json.submitter_count, is_conflicting: $json.is_conflicting, last_evaluated: $json.last_evaluated, review_status: $json.review_status, conditions: $json.conditions, population: $json.sas_text, south_asian_data: $json.gnomad_found, source_url: $json.source_url }) }}",
+        "options": {}
+      },
+      "id": "12047af2-1352-4fe0-baa0-b152c86beaf1",
+      "name": "Cache Evidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2000,
+        80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const THIS_YEAR = 2026;\nconst rows = $(\"Shape Evidence\").all();\nconst byRs = {};\nfor (const r of rows) { if (r.json.rsid) { byRs[r.json.rsid] = r.json; } }\nlet apoe = null;\nconst m1 = byRs[\"rs429358\"];\nconst m2 = byRs[\"rs7412\"];\nif (m1 && m2) {\n  if (m1.not_covered || m2.not_covered || m1.alt_copies === null || m2.alt_copies === null) {\n    apoe = \"cannot be determined - one of the two APOE markers is missing from your file\";\n  } else {\n    const table = { \"0-0\": \"ε3/ε3\", \"0-1\": \"ε2/ε3\", \"0-2\": \"ε2/ε2\", \"1-0\": \"ε3/ε4\", \"1-1\": \"ε2/ε4\", \"2-0\": \"ε4/ε4\" };\n    apoe = table[m1.alt_copies + \"-\" + m2.alt_copies] || \"unresolved combination\";\n  }\n}\nfunction ageText(year, age) {\n  if (!year) { return null; }\n  if (age <= 0) { return \"Last reviewed \" + year + \" (this year).\"; }\n  return \"Last reviewed \" + year + \" (about \" + age + (age === 1 ? \" year\" : \" years\") + \" ago).\";\n}\nconst out = [];\nfor (const row of rows) {\n  const e = row.json;\n  const cls = String(e.classification || \"\").toLowerCase();\n  const rev = String(e.review_status || \"\").toLowerCase();\n  const multiAgree = rev.indexOf(\"multiple submitters, no conflicts\") !== -1 || rev.indexOf(\"expert panel\") !== -1 || rev.indexOf(\"practice guideline\") !== -1;\n  const submitters = e.submitter_count || 0;\n  let year = null;\n  if (e.last_evaluated) { const m = String(e.last_evaluated).match(/\\d{4}/); if (m) { year = parseInt(m[0], 10); } }\n  const age = year ? (THIS_YEAR - year) : null;\n  let label; let why; let trace;\n  if (e.not_covered) {\n    label = \"refused\";\n    why = \"This position was not present in your file, so nothing can be said about it. That is a gap in the data you uploaded, not a result.\";\n    trace = \"not_covered=true; no lookup attempted\";\n  } else if (e.lookup_status === \"failed\") {\n    label = \"refused\";\n    why = \"We could not reach the evidence database, so we are not guessing. This is different from the evidence being uncertain.\";\n    trace = \"lookup_status=failed; no record retrieved\";\n  } else if (e.lookup_status === \"no_match\") {\n    label = \"refused\";\n    why = \"The public database has no record for exactly this change, so no claim is made.\";\n    trace = \"lookup_status=no_match; candidates=\" + (e.clinvar_candidates || 0) + \", none matched gene+change exactly\";\n  } else if (cls.indexOf(\"conflicting\") !== -1) {\n    label = \"contested\";\n    why = \"Submitting laboratories disagree with each other about this variant.\";\n    trace = \"classification=conflicting; submissions=\" + submitters + \"; year=\" + (year || \"none\");\n  } else if (cls === \"\" || cls.indexOf(\"uncertain\") !== -1 || cls.indexOf(\"not provided\") !== -1 || cls.indexOf(\"no classification\") !== -1) {\n    label = \"refused\";\n    why = \"The database holds no usable classification for this variant, so no claim is made.\";\n    trace = \"classification=\" + (e.classification || \"none\") + \"; submissions=\" + submitters;\n  } else if (multiAgree && age !== null && age <= 5) {\n    label = \"strong\";\n    why = \"Several labs submitted on this variant, they agree, and the entry was reviewed in the last five years.\";\n    trace = \"review=\" + e.review_status + \"; submissions=\" + submitters + \"; year=\" + year + \"; age=\" + age + \"y\";\n  } else {\n    label = \"weak\";\n    why = multiAgree ? \"Labs agree, but the entry has not been reviewed in the last five years.\" : \"Only one lab's assessment, or no review criteria were given, so this rests on thin evidence.\";\n    trace = \"review=\" + (e.review_status || \"none\") + \"; submissions=\" + submitters + \"; year=\" + (year || \"none\") + \"; age=\" + (age === null ? \"unknown\" : age + \"y\");\n  }\n  if (e.alt_copies !== null && e.alt_copies !== undefined) { trace = trace + \"; variant_copies=\" + e.alt_copies; }\n  if (e.lookup_status === \"from_cache\") { trace = trace + \"; served from cache, live lookup failed\"; }\n  if (e.gnomad_found === true) { trace = trace + \"; gnomAD v4 sas checked\"; } else if (!e.not_covered) { trace = trace + \"; gnomAD sas unavailable\"; }\n  const isApoe = (e.rsid === \"rs429358\" || e.rsid === \"rs7412\");\n  const evidenceAge = ageText(year, age) || (e.not_covered ? \"Not applicable - nothing was looked up.\" : \"No review date published.\");\n  const facts = [\n    \"Gene: \" + (e.gene || \"unknown\"),\n    \"Marker: \" + (e.rsid || e.hgvs_c || \"unknown\"),\n    e.obs_source === \"lab_report\" ? (\"What the person's own lab report said: \" + (e.lab_classification || \"not stated\")) : null,\n    \"Condition the database links this change to: \" + (e.conditions || \"not stated\"),\n    \"Database classification: \" + (e.classification || \"none\"),\n    \"Database review status: \" + (e.review_status || \"none\"),\n    \"Number of lab submissions: \" + submitters,\n    \"Evidence age: \" + evidenceAge,\n    \"South Asian frequency: \" + e.sas_text,\n    \"Label already decided (do not change it): \" + label,\n    \"Why that label: \" + why\n  ].filter(function (x) { return x; }).join(\"\\n\");\n  out.push({ json: Object.assign({}, e, {\n    label: label, why: why, rule_trace: trace,\n    apoe_genotype: isApoe ? apoe : null,\n    evidence_age: evidenceAge,\n    facts_text: facts\n  }) });\n}\nreturn out;"
+      },
+      "id": "a4e6c83a-52ea-4bbb-bb18-0c5ae2dc4e7d",
+      "name": "Apply Label Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You write two short paragraphs for a card read by a person with no genetics background.\n\nFACTS:\n{{ $json.facts_text }}\n\nRules:\n- Use ONLY the facts above. Never add a fact, study, percentage or number that is not written above.\n- Write every number as digits (42, not Fortytwo; 2, not two).\n- Do not interpret, guess or draw conclusions (for example, never say what a frequency \"suggests\"). Only restate facts in plain words.\n- No medical advice. Do not change the label. Do not mention how many copies the person carries or their APOE type.\n- Plain words, short sentences, at most 60 words per paragraph.\n- If the condition the database links this change to is different from everyday cholesterol risk, say so plainly.\n- If the person's own lab report and the database give different classifications, say that plainly in paragraph 1: it is the most useful thing on the card.\n\nOutput exactly two paragraphs separated by one blank line, with no headings, labels or bullet points, and nothing else:\nParagraph 1: what supports this evidence.\nParagraph 2: what weakens or disputes it. If nothing in the facts disputes it, say that plainly. This paragraph MUST include the South Asian frequency fact in plain words.",
+        "batching": {
+          "batchSize": 1,
+          "delayBetweenBatches": 1200
+        }
+      },
+      "id": "63d894a8-e047-4455-b385-c3851e1365d1",
+      "name": "Write Plain English",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2448,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {
+          "maxTokensToSample": 2000,
+          "temperature": 0
+        }
+      },
+      "id": "8a87dd81-eafb-4ade-b4f3-97eb676da138",
+      "name": "Groq Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        320
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "rWf3UwSkieKz54uM",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rules = $(\"Apply Label Rules\").all();\nconst words = $input.all();\nconst order = { strong: 0, contested: 1, weak: 2, refused: 3 };\nconst out = [];\nlet uploadId = null;\n// Coarse class of a classification string, used only to decide whether the lab\n// and the public database are saying substantively different things.\nfunction tier(s) {\n  const k = String(s || \"\").toLowerCase();\n  if (!k) { return \"none\"; }\n  if (k.indexOf(\"conflicting\") !== -1) { return \"conflicting\"; }\n  if (k.indexOf(\"uncertain\") !== -1 || k.indexOf(\"vus\") !== -1) { return \"uncertain\"; }\n  if (k.indexOf(\"benign\") !== -1) { return \"benign\"; }\n  if (k.indexOf(\"pathogenic\") !== -1) { return \"pathogenic\"; }\n  if (k.indexOf(\"risk factor\") !== -1) { return \"risk\"; }\n  if (k.indexOf(\"drug response\") !== -1) { return \"drug\"; }\n  return \"other\";\n}\nfunction headlineFor(r) {\n  const name = ((r.gene || \"Variant\") + \" \" + (r.rsid || r.hgvs_c || \"\")).trim();\n  if (r.obs_source === \"lab_report\") {\n    const lab = r.lab_classification || \"unclassified\";\n    const db = r.classification;\n    const tl = tier(lab), td = tier(db);\n    // Where the database already says \"conflicting\" the label itself carries that,\n    // so only surface a disagreement the label does not already express.\n    if (db && td !== \"conflicting\" && td !== \"none\" && tl !== \"none\" && tl !== td) {\n      return name + \": your report says \\\"\" + lab + \"\\\", the public database says \\\"\" + db + \"\\\".\";\n    }\n    return name + \": your report calls this \\\"\" + lab + \"\\\".\";\n  }\n  if (r.not_covered) {\n    let h = name + \" was not present in your file.\";\n    if (r.apoe_genotype) { h = h + \" Your APOE type \" + r.apoe_genotype + \".\"; }\n    return h;\n  }\n  const n = r.alt_copies;\n  let h = name + \": you carry \" + n + \" \" + (n === 1 ? \"copy\" : \"copies\") + \" of the \" + r.alt + \" version.\";\n  if (r.apoe_genotype) {\n    h = h + (r.apoe_genotype.indexOf(\"cannot\") === 0 ? (\" Your APOE type \" + r.apoe_genotype + \".\") : (\" Combined with the other APOE marker, your APOE type is \" + r.apoe_genotype + \".\"));\n  }\n  return h;\n}\n// Numbers are compared after removing thousands commas, so 8,686 and 8686 count as the same number.\nfunction nums(s) { return String(s).replace(/(\\d),(?=\\d{3}\\b)/g, \"$1\").match(/\\d+(?:\\.\\d+)?/g) || []; }\nconst refusalNext = {\n  not_covered: \"Many consumer DNA chips do not test every position. If this marker matters to you, a clinical test can check it directly.\",\n  failed: \"This is a temporary connection problem, not a finding. Running the analysis again later may succeed.\",\n  no_match: \"A lab or a different test may describe this change in another way. Only an exact match is used here.\"\n};\nfor (let i = 0; i < rules.length; i++) {\n  const r = rules[i].json;\n  uploadId = r.upload_id;\n  const w = (words[i] && words[i].json) ? words[i].json : {};\n  const t = w.text ? String(w.text) : \"\";\n  let parts = t.split(/\\n\\s*\\n/).map(function (s) { return s.replace(/^\\s*(paragraph\\s*\\d\\s*:|supports?:|disputes?:|\\d[.)])\\s*/i, \"\").trim(); }).filter(function (s) { return s.length > 0; });\n  if (parts.length === 1 && parts[0].indexOf(\"\\n\") !== -1) { parts = parts[0].split(/\\n/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; }); }\n  const allowed = new Set(nums(r.facts_text || \"\"));\n  let textSource = \"model\";\n  let reason = \"\";\n  const refusalKind = r.not_covered ? \"not_covered\" : ((r.lookup_status === \"failed\" || r.lookup_status === \"no_match\") ? r.lookup_status : null);\n  if (refusalKind) { textSource = \"rules\"; reason = \"refusal\"; }\n  else if (w.error) { textSource = \"rules\"; reason = \"model error: \" + String(w.error).slice(0, 80); }\n  else if (parts.length !== 2) { textSource = \"rules\"; reason = \"model returned \" + parts.length + \" paragraphs\"; }\n  else {\n    const bad = nums(parts[0] + \" \" + parts[1]).filter(function (x) { return !allowed.has(x); });\n    if (bad.length > 0) { textSource = \"rules\"; reason = \"model used numbers not in the facts: \" + bad.join(\",\"); }\n  }\n  const nSub = r.submitter_count || 0;\n  const ruleSupports = r.classification ? (\"ClinVar lists this change as \\\"\" + r.classification + \"\\\"\" + (r.conditions ? (\" for \" + r.conditions) : \"\") + \", from \" + nSub + \" lab submission\" + (nSub === 1 ? \"\" : \"s\") + \" (review status: \" + (r.review_status || \"none\") + \").\") : r.why;\n  const ruleDisputes = refusalKind ? refusalNext[refusalKind] : ((r.label === \"strong\" ? \"Nothing in the database disputes this classification.\" : r.why) + \" \" + (r.sas_text || \"\")).trim();\n  let supports = textSource === \"model\" ? parts[0] : (refusalKind ? r.why : ruleSupports);\n  let disputes = textSource === \"model\" ? parts[1] : ruleDisputes;\n  if (textSource === \"model\" && disputes.toLowerCase().indexOf(\"south asian\") === -1) { disputes = disputes + \" \" + r.sas_text; reason = \"South Asian line appended\"; }\n  if (r.obs_source === \"dna_file\" && r.alt_copies === 0 && !r.not_covered) {\n    supports = \"You do not carry this change, so what follows describes people who do. \" + supports;\n  }\n  out.push({ json: {\n    upload_id: r.upload_id,\n    observation_id: r.observation_id,\n    label: r.label,\n    headline: headlineFor(r),\n    supports: supports,\n    disputes: disputes,\n    evidence_age: r.evidence_age,\n    population: r.sas_text || \"No population frequency was retrieved.\",\n    source_urls: [r.source_url, r.gnomad_url].filter(Boolean),\n    rule_trace: r.rule_trace + \"; text=\" + textSource + (reason ? (\" (\" + reason + \")\") : \"\"),\n    lookup_status: r.lookup_status,\n    sort_order: order[r.label] === undefined ? 9 : order[r.label],\n    variant_key: r.variant_key || null,\n    gene: r.gene || null,\n    rsid: r.rsid || null,\n    classification: r.classification || null,\n    checked_at: new Date().toISOString(),\n    is_stale: false,\n    previous_classification: null\n  } });\n}\n// Standing refusal for the MYBPC3 25bp deletion. Why it cannot be checked differs\n// by path, and the wrong reason is a false claim inside the user's own report.\nconst isLabReport = rules.length > 0 && rules[0].json.obs_source === \"lab_report\";\nconst mybpc3Disputes = isLabReport\n  ? \"It is a 25-base-pair deletion on chromosome 11. This tool only looks up the variants your report lists, and your report does not name this one. We are not able to tell you anything about it.\"\n  : \"It is a 25-base-pair deletion on chromosome 11. The panel this tool checks covers single-letter changes on chromosome 19 only, and consumer genotyping arrays do not report this class of variant at all. We are not able to tell you anything about it.\";\nout.push({ json: {\n  upload_id: uploadId,\n  observation_id: null,\n  label: \"refused\",\n  headline: \"We cannot check the MYBPC3 25-base-pair deletion.\",\n  supports: \"This variant is carried by roughly 4% of Indians and is associated with about seven times the odds of cardiomyopathy. It is essentially absent in European populations.\",\n  disputes: mybpc3Disputes,\n  evidence_age: \"Dhandapany et al., Nature Genetics, 2009.\",\n  population: \"Measured in 6,273 Indians across 107 ethnic groups.\",\n  source_urls: [\"https://www.nature.com/articles/ng.309\"],\n  rule_trace: \"standing refusal; variant class not covered by this build; path=\" + (isLabReport ? \"lab_report\" : \"dna_file\"),\n  lookup_status: \"skipped\",\n  sort_order: 8,\n  variant_key: null,\n  gene: \"MYBPC3\",\n  rsid: null,\n  classification: null,\n  checked_at: new Date().toISOString(),\n  is_stale: false,\n  previous_classification: null\n} });\nreturn out;"
+      },
+      "id": "88d40ed5-1523-4b7b-946a-139f58b3be1c",
+      "name": "Assemble Cards",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mnbafonstnhdybonknap.supabase.co/rest/v1/findings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "f8883b13-9154-4b1d-8438-f8fb6b3e4eac",
+      "name": "Save Findings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2880,
+        80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $(\"Read Upload Id\").first().json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"done\" }",
+        "options": {}
+      },
+      "id": "1910314e-ac65-4a06-a686-5d75eba66b4f",
+      "name": "Mark Upload Done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3104,
+        80
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"awaiting_confirmation\", \"refusal_reason\": \"Extraction was not confirmed by the user, so no findings were generated.\" }",
+        "options": {}
+      },
+      "id": "673e795f-c424-492e-b92c-3e399d4be210",
+      "name": "Block Unconfirmed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## The gate\n\nNothing past this point runs unless the user confirmed the extraction. Path A sets user_confirmed=true automatically. Path B waits for a human to check the reading against the paper report.",
+        "height": 464,
+        "width": 384,
+        "color": 3
+      },
+      "id": "83fd3f90-2b68-49cb-93cc-13a6f7fc11df",
+      "name": "Sticky Note 095ed434",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        656,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Rules, not a model\n\nApply Label Rules is plain arithmetic on what ClinVar returned. The model never sees this step and cannot change a label. Remove the model and every judgement here is identical.",
+        "height": 224,
+        "width": 160,
+        "color": 4
+      },
+      "id": "74431ef2-da95-4796-9c06-098194ed6567",
+      "name": "Sticky Note 83a8a160",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/evidence?variant_key=in.({{ $(\"Build Variant Keys\").all().map(i => '%22' + i.json.variant_key + '%22').join(',') }})&order=fetched_at.desc",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "269a2521-1835-466d-941d-787a6f583745",
+      "name": "Load Cached Evidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        -144
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "ATTACH THE SUPABASE CREDENTIAL HERE. Read before the live lookup so a cached answer can stand in if ClinVar is unreachable."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gnomad.broadinstitute.org/api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: \"query V($variantId: String!, $dataset: DatasetId!) { variant(variantId: $variantId, dataset: $dataset) { variant_id genome { ac an populations { id ac an } } exome { ac an populations { id ac an } } } }\", variables: { variantId: $json.gnomad_id38, dataset: \"gnomad_r4\" } }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 400
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 25000
+        }
+      },
+      "id": "5325c609-1ed1-43ba-8541-ae3a0180cd3e",
+      "name": "Ask gnomAD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1568,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2500,
+      "onError": "continueRegularOutput",
+      "notes": "No credential needed. Population frequency by ancestry group; the 'sas' population is South Asian. Dataset gnomad_r2_1 is on GRCh37, matching the panel."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Choose the ONE ClinVar record that is exactly this person's change.\n// Path A: same dbSNP rsID AND same ref>alt letters. Path B: same gene AND same HGVS c. change.\n// Haplotype / compound records (more than one change) are skipped.\nconst keys = $(\"Build Variant Keys\").all();\nconst resps = $input.all();\nconst chromName = function (acc) { const n = parseInt(String(acc).slice(3, 9), 10); if (n === 23) { return \"X\"; } if (n === 24) { return \"Y\"; } return String(n); };\nconst out = [];\nfor (let i = 0; i < keys.length; i++) {\n  const src = keys[i].json;\n  const resp = (resps[i] && resps[i].json) ? resps[i].json : {};\n  const res = resp.result || null;\n  let status = \"ok\";\n  let pick = null;\n  let candidates = 0;\n  if (src.not_covered) {\n    status = \"skipped\";\n  } else if (!res || resp.error) {\n    status = \"failed\";\n  } else {\n    const uids = res.uids || [];\n    candidates = uids.length;\n    const rsNum = src.rsid ? String(src.rsid).replace(/^rs/i, \"\") : null;\n    const ref = String(src.ref || \"\").toUpperCase();\n    const alt = String(src.alt || \"\").toUpperCase();\n    const hg = src.hgvs_c ? String(src.hgvs_c).replace(/\\s+/g, \"\") : null;\n    const gene = String(src.gene || \"\").toUpperCase();\n    const matches = [];\n    for (const u of uids) {\n      const r = res[u];\n      if (!r) { continue; }\n      const vs = r.variation_set || [];\n      if (vs.length !== 1) { continue; }\n      const v = vs[0];\n      const desc = String((r.germline_classification || {}).description || \"\").toLowerCase();\n      if (desc.indexOf(\"no classification\") !== -1) { continue; }\n      let ok = false;\n      if (rsNum) {\n        const hasRs = (v.variation_xrefs || []).some(function (x) { return x.db_source === \"dbSNP\" && String(x.db_id) === rsNum; });\n        const spdi = String(v.canonical_spdi || \"\").toUpperCase();\n        ok = hasRs && (!alt || spdi.endsWith(\":\" + ref + \":\" + alt));\n      } else if (hg) {\n        const name = (String(v.cdna_change || \"\") + \" \" + String(v.variation_name || \"\")).replace(/\\s+/g, \"\");\n        ok = name.indexOf(hg) !== -1;\n        if (ok && gene) {\n          ok = (r.genes || []).some(function (g) { return String(g.symbol).toUpperCase() === gene; }) || name.toUpperCase().indexOf(\"(\" + gene + \")\") !== -1;\n        }\n      }\n      if (ok) { matches.push(r); }\n    }\n    if (matches.length === 0) {\n      status = \"no_match\";\n    } else {\n      matches.sort(function (a, b) { return ((b.supporting_submissions || {}).scv || []).length - ((a.supporting_submissions || {}).scv || []).length; });\n      pick = matches[0];\n    }\n  }\n  let gnomad38 = null;\n  let classification = null; let lastEval = null; let review = null; let scv = 0; let conditions = null; let uid = null;\n  let sourceUrl = \"https://www.ncbi.nlm.nih.gov/clinvar/\";\n  if (pick) {\n    const g = pick.germline_classification || {};\n    classification = g.description || null;\n    lastEval = (g.last_evaluated && String(g.last_evaluated).indexOf(\"1/01/01\") !== 0) ? String(g.last_evaluated).slice(0, 10).replace(/\\//g, \"-\") : null;\n    review = g.review_status || null;\n    scv = ((pick.supporting_submissions || {}).scv || []).length;\n    conditions = (g.trait_set || []).map(function (t) { return t.trait_name; }).filter(function (t) { return t; }).join(\"; \") || null;\n    uid = pick.uid;\n    sourceUrl = \"https://www.ncbi.nlm.nih.gov/clinvar/variation/\" + pick.uid + \"/\";\n    const sp = String((pick.variation_set[0] || {}).canonical_spdi || \"\").split(\":\");\n    if (sp.length === 4 && sp[2] && sp[3] && sp[2] !== sp[3]) {\n      gnomad38 = chromName(sp[0]) + \"-\" + (parseInt(sp[1], 10) + 1) + \"-\" + sp[2] + \"-\" + sp[3];\n    }\n  } else if (src.rsid && src.rsid === \"rs6511720\") {\n    gnomad38 = \"19-11091630-G-T\";\n  } else if (src.rsid && src.rsid === \"rs429358\") {\n    gnomad38 = \"19-44908684-T-C\";\n  } else if (src.rsid && src.rsid === \"rs7412\") {\n    gnomad38 = \"19-44908822-C-T\";\n  }\n  out.push({ json: Object.assign({}, src, {\n    lookup_status: status, clinvar_candidates: candidates, clinvar_uid: uid,\n    classification: classification, last_evaluated: lastEval, review_status: review,\n    scv_count: scv, conditions: conditions, source_url: sourceUrl,\n    gnomad_id38: gnomad38 || \"none\"\n  }) });\n}\nreturn out;"
+      },
+      "id": "d3054cbc-c9ac-4b0f-86aa-3823f7536865",
+      "name": "Pick ClinVar Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $('Read Upload Id').first().json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"processing\" }",
+        "options": {}
+      },
+      "id": "c936366a-f15c-4190-8a8c-853f7b8fbb1b",
+      "name": "Mark Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        -64
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Runs in parallel with the analysis so the upload immediately leaves awaiting_confirmation. Without this the app sends the user back to the confirm screen forever."
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/findings?upload_id=eq.{{ $('Read Upload Id').first().json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "144626a8-1b3a-4724-b588-cb6dcf20afdf",
+      "name": "Clear Old Findings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        64
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Analysing the same upload twice used to leave two copies of every card. This clears the previous run first. It runs on a side branch, seconds before Save Findings."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Called by Path A": {
+      "main": [
+        [
+          {
+            "node": "Read Upload Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Upload Id": {
+      "main": [
+        [
+          {
+            "node": "Load Observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Confirmed Extraction": {
+      "main": [
+        [
+          {
+            "node": "Read Upload Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Observations": {
+      "main": [
+        [
+          {
+            "node": "Confirmed By User?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed By User?": {
+      "main": [
+        [
+          {
+            "node": "Mark Processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Block Unconfirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search ClinVar": {
+      "main": [
+        [
+          {
+            "node": "Get ClinVar Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Evidence": {
+      "main": [
+        [
+          {
+            "node": "Cache Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Evidence": {
+      "main": [
+        [
+          {
+            "node": "Apply Label Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Label Rules": {
+      "main": [
+        [
+          {
+            "node": "Write Plain English",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Plain English": {
+      "main": [
+        [
+          {
+            "node": "Assemble Cards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write Plain English",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Cards": {
+      "main": [
+        [
+          {
+            "node": "Save Findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Findings": {
+      "main": [
+        [
+          {
+            "node": "Mark Upload Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Variant Keys": {
+      "main": [
+        [
+          {
+            "node": "Load Cached Evidence",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search ClinVar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask gnomAD": {
+      "main": [
+        [
+          {
+            "node": "Shape Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get ClinVar Records": {
+      "main": [
+        [
+          {
+            "node": "Pick ClinVar Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick ClinVar Record": {
+      "main": [
+        [
+          {
+            "node": "Ask gnomAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Processing": {
+      "main": [
+        [
+          {
+            "node": "Clear Old Findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Old Findings": {
+      "main": [
+        [
+          {
+            "node": "Build Variant Keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "e4fab03f-82a1-464f-b680-e1e3375c4d27",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "72cd8a9c585fc491d37ca0e0193e20ba9be3f77efc223c1299d366e51dcafe33"
+  },
+  "nodeGroups": [
+    {
+      "id": "01c4dbfc-9f87-4ac1-ad02-d51a6ef7550c",
+      "name": "Gate",
+      "nodeIds": [
+        "5bfcf98d-3cb4-4c0b-913f-0948139b5bb3",
+        "32b8396b-ef4b-4360-954c-571a1d84c56f",
+        "879f1103-6acc-4c86-8678-19ee5449faee"
+      ],
+      "description": "Reads the upload and stops unless the extraction was confirmed."
+    },
+    {
+      "id": "481a5f7a-f91c-4edf-bc37-8bebbd0b123b",
+      "name": "Evidence lookup",
+      "nodeIds": [
+        "e92708d3-edaf-4c00-9ec1-6be267dffd47",
+        "8d5b6688-bbe2-449e-99f9-87c632272211",
+        "d3054cbc-c9ac-4b0f-86aa-3823f7536865",
+        "5325c609-1ed1-43ba-8541-ae3a0180cd3e",
+        "d73a6a0b-2a80-407d-ae4a-ac9ab9d84f5e",
+        "12047af2-1352-4fe0-baa0-b152c86beaf1"
+      ],
+      "description": "Finds the exact ClinVar record, asks gnomAD v4 for the South Asian frequency, caches the answer."
+    },
+    {
+      "id": "9aebf6c0-8b31-4a15-ab6b-8e200e4fc312",
+      "name": "Write the cards",
+      "nodeIds": [
+        "a4e6c83a-52ea-4bbb-bb18-0c5ae2dc4e7d",
+        "63d894a8-e047-4455-b385-c3851e1365d1",
+        "8a87dd81-eafb-4ade-b4f3-97eb676da138",
+        "88d40ed5-1523-4b7b-946a-139f58b3be1c",
+        "f8883b13-9154-4b1d-8438-f8fb6b3e4eac",
+        "1910314e-ac65-4a06-a686-5d75eba66b4f"
+      ],
+      "description": "Labels come from rules; Groq writes two paragraphs that are checked for invented numbers before saving."
+    }
+  ],
+  "id": "G7I2DFHTfVjjfF1i",
+  "tags": []
+}
