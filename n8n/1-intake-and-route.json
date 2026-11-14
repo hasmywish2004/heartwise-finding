@@ -1,0 +1,1153 @@
+{
+  "name": "Genome - 1. Intake and Route",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "genome-upload",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "dfeb22c2-8ce0-4f4c-b3b7-8bb83d10115c",
+      "name": "New Upload",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        208
+      ],
+      "webhookId": "cbd37944-3408-4879-a110-295cbce1abae"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "uid",
+              "name": "upload_id",
+              "value": "={{ $json.body?.upload_id ?? $json.upload_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "894cd8d4-0647-4a6e-be9f-63ec4a41f39b",
+      "name": "Read Upload Id",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $json.upload_id }}&select=id,filename,storage_path",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "1b800ef1-aaa2-4649-ab1a-f481524786e1",
+      "name": "Get Upload Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        464,
+        -128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/storage/v1/object/dna-uploads/{{ $json.storage_path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "a8473675-d7b0-476e-9983-40255ab87021",
+      "name": "Download File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        688,
+        -128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadId = $(\"Read Upload Id\").first().json.upload_id;\nconst filename = $(\"Get Upload Row\").first().json.filename || \"\";\nlet buf = null;\ntry { buf = await this.helpers.getBinaryDataBuffer(0, \"data\"); } catch (e) { buf = null; }\nif (!buf || buf.length === 0) {\n  return [{ json: { upload_id: uploadId, filename: filename, detected_type: \"unknown\", path: \"R\", reason: \"No file content was received from storage.\", bytes: 0 } }];\n}\nconst head = buf.subarray(0, 8192);\nconst isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;\nconst isJpg = head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF;\nconst isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4E && head[3] === 0x47;\nconst isZip = head[0] === 0x50 && head[1] === 0x4B && head[2] === 0x03 && head[3] === 0x04;\nconst isGzip = head[0] === 0x1F && head[1] === 0x8B;\nlet detected = \"unknown\";\nlet path = \"R\";\nlet reason = null;\nif (isPdf) {\n  detected = \"pdf\"; path = \"B\";\n} else if (isJpg || isPng) {\n  detected = \"image\"; path = \"B\";\n} else if (isZip) {\n  detected = \"zip\";\n  reason = \"This is a zip file. 23andMe and AncestryDNA downloads arrive zipped - please unzip it and upload the .txt file inside.\";\n} else if (isGzip) {\n  detected = \"gzip\";\n  reason = \"This is a compressed .gz file. Please decompress it and upload the plain text or .vcf file.\";\n} else {\n  const text = head.toString(\"utf8\");\n  const looksVcf = /^##fileformat=VCF/im.test(text) || /^#CHROM\\s+POS/im.test(text);\n  const looksGenotype = /rsid[\\s\",]*[,\\t][\\s\",]*chromosome/i.test(text) || /^\"?(rs|i)\\d+\"?[\\t,]\\s*\"?\\w+\"?[\\t,]\\s*\"?\\d+/im.test(text);\n  if (looksVcf) { detected = \"vcf\"; path = \"A\"; }\n  else if (looksGenotype) { detected = \"genotype_text\"; path = \"A\"; }\n  else { reason = \"This file is not a raw genotype file and is not a PDF or photo of a lab report. We only read consumer DNA data files, PDF lab reports, and photos of lab reports.\"; }\n}\nreturn [{ json: { upload_id: uploadId, filename: filename, detected_type: detected, path: path, reason: reason, bytes: buf.length } }];"
+      },
+      "id": "c79dff84-a362-4bea-a71d-0d47361411f3",
+      "name": "Sniff The File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ detected_type: $json.detected_type, path: $json.path, status: $json.path === \"R\" ? \"refused\" : \"processing\", refusal_reason: $json.reason }) }}",
+        "options": {}
+      },
+      "id": "e9593a23-889c-4671-a333-c86581472c0b",
+      "name": "Save Routing Decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        -128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $(\"Sniff The File\").first().json.path }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "A"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $(\"Sniff The File\").first().json.path }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "B"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Refused"
+        }
+      },
+      "id": "922403d0-9d57-4498-99af-e3862f9b01f6",
+      "name": "Path A or Path B",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2032,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://mnbafonstnhdybonknap.supabase.co/rest/v1/panel_variants?select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "cdfe53da-d6d8-4542-824b-b40526a37830",
+      "name": "Load Frozen Panel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2192,
+        -96
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const panel = $(\"Load Frozen Panel\").all().map(function (r) { return r.json; });\nconst meta = $(\"Sniff The File\").first().json;\nconst buf = await this.helpers.getBinaryDataBuffer(0, \"data\");\nconst text = buf.toString(\"utf8\");\nconst lines = text.split(/\\r?\\n/);\nconst byPos = {};\nfor (const p of panel) { byPos[String(p.chrom) + \":\" + String(p.pos)] = p; }\nconst found = {};\nconst noCall = {};\nlet dataRows = 0;\nfor (const line of lines) {\n  if (!line || line.charAt(0) === \"#\") { continue; }\n  const cols = line.indexOf(\"\\t\") !== -1 ? line.split(\"\\t\") : line.split(\",\");\n  if (cols.length < 4) { continue; }\n  const clean = cols.map(function (c) { return String(c).replace(/^\\\"|\\\"$/g, \"\").trim(); });\n  if (/^rsid$/i.test(clean[0]) || /^#?CHROM$/i.test(clean[0])) { continue; }\n  dataRows++;\n  let chrom; let pos; let geno;\n  if (meta.detected_type === \"vcf\") {\n    chrom = clean[0].replace(/^chr/i, \"\"); pos = clean[1];\n    const ref = clean[3]; const alt = clean[4];\n    const gtField = clean[9] ? clean[9].split(\":\")[0] : \"\";\n    const alleles = gtField.split(/[\\/|]/);\n    geno = alleles.map(function (a) { return a === \"0\" ? ref : (a === \"1\" ? alt : \"?\"); }).join(\"\");\n  } else {\n    chrom = clean[1].replace(/^chr/i, \"\"); pos = clean[2];\n    geno = clean.length >= 5 ? (clean[3] + clean[4]) : clean[3];\n  }\n  geno = String(geno || \"\").toUpperCase();\n  const key = chrom + \":\" + pos;\n  if (byPos[key] && !found[key]) {\n    // A no-call (--, 00, ??, or anything that is not two letters A/C/G/T) is treated as missing, never as zero copies.\n    if (!/^[ACGT]{1,2}$/.test(geno)) { noCall[key] = geno; continue; }\n    const p = byPos[key];\n    found[key] = { upload_id: meta.upload_id, source: \"dna_file\", gene: p.gene, rsid: p.rsid, genome_build: p.genome_build, chrom: p.chrom, pos: p.pos, ref: p.ref, alt: p.alt, genotype: geno, panel_variant_id: p.id, user_confirmed: true, not_covered: false };\n  }\n}\nconst out = [];\nfor (const p of panel) {\n  const key = String(p.chrom) + \":\" + String(p.pos);\n  if (found[key]) { out.push({ json: found[key] }); }\n  else { out.push({ json: { upload_id: meta.upload_id, source: \"dna_file\", gene: p.gene, rsid: p.rsid, genome_build: p.genome_build, chrom: p.chrom, pos: p.pos, ref: p.ref, alt: p.alt, genotype: null, panel_variant_id: p.id, user_confirmed: true, not_covered: true, no_call: noCall[key] !== undefined } }); }\n}\nif (out.length > 0) {\n  out[0].json.rows_read = dataRows;\n  out[0].json.rows_kept = Object.keys(found).length;\n  out[0].json.rows_discarded = dataRows - Object.keys(found).length;\n}\nreturn out;"
+      },
+      "id": "545f2097-51ec-4d1a-b981-da50148a81a2",
+      "name": "Keep Only Panel Positions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mnbafonstnhdybonknap.supabase.co/rest/v1/observations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ upload_id: $json.upload_id, source: $json.source, gene: $json.gene, rsid: $json.rsid, genome_build: $json.genome_build, chrom: $json.chrom, pos: $json.pos, ref: $json.ref, alt: $json.alt, genotype: $json.genotype, panel_variant_id: $json.panel_variant_id, user_confirmed: true }) }}",
+        "options": {}
+      },
+      "id": "c7a6ff4d-1c14-4da1-a3cf-459a4239dd03",
+      "name": "Save Observations (A)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2208,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "G7I2DFHTfVjjfF1i",
+          "cachedResultName": "Genome - 2. Analyse"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "31ac70d4-a7af-4d0c-b636-82b0d4d38d85",
+      "name": "Run Analysis",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2640,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ upload_id: $(\"Sniff The File\").first().json.upload_id, path: \"A\", detected_type: $(\"Sniff The File\").first().json.detected_type, status: \"done\", needs_confirmation: false, rows_read: $(\"Hand Over Upload Id\").first().json.rows_read, rows_discarded: $(\"Hand Over Upload Id\").first().json.rows_discarded }) }}",
+        "options": {}
+      },
+      "id": "0e7c0ea9-fd8b-4a9c-bb67-d2092602fc04",
+      "name": "Respond - Findings Ready",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2864,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $(\"Sniff The File\").first().json.detected_type }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "pdf"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5c25bf8d-7fc1-45c4-b9ce-5ebf3999d78e",
+      "name": "PDF or Photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {
+          "joinPages": true
+        }
+      },
+      "id": "83c25aff-b6af-4da8-95d6-e88a49c0a10e",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        1984,
+        240
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.text ?? \"\").length }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 200
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "064d436e-f33c-4fcc-a0dc-5a3edacd17b0",
+      "name": "Did We Get Text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2208,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Below is the text of a clinical genetic test report.\n\nFind the variant table and return ONE LINE PER VARIANT, in exactly this pipe-separated format, and nothing else:\n\ngene|hgvs_c|hgvs_p|zygosity|lab_classification|genome_build\n\nRules:\n- Copy values exactly as printed. Do not correct or reformat them.\n- If a field is not printed, write NONE.\n- If the report states a reference build such as GRCh38 or hg19, put it in genome_build; otherwise write NONE.\n- If you cannot find a variant table, return exactly: NO_VARIANTS_FOUND\n- Never invent a variant. Add no commentary, heading or explanation.\n\nREPORT TEXT:\n{{ $json.text }}",
+        "batching": {}
+      },
+      "id": "e2ea44c0-5f92-4da5-9f57-3af081d4a0a3",
+      "name": "Read Variant Table",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2416,
+        160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "maxTokensToSample": 1500,
+          "temperature": 0
+        }
+      },
+      "id": "4f839ffd-d93e-4142-aef4-b0bfd8f50434",
+      "name": "Groq Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2416,
+        624
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "rWf3UwSkieKz54uM",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $(\"Sniff The File\").first().json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"refused\", \"refusal_reason\": \"This PDF contains no readable text, so it is probably a scan. Please upload a clear photograph of the report page instead, or a PDF that was generated digitally.\" }",
+        "options": {}
+      },
+      "id": "23e68712-c404-4397-8781-d2977a5d7d0f",
+      "name": "Refuse - Scanned PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2416,
+        816
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ upload_id: $(\"Sniff The File\").first().json.upload_id, status: \"refused\", reason: \"This PDF has no readable text. Please upload a photo of the page instead.\" }) }}",
+        "options": {}
+      },
+      "id": "71f45a01-dfc2-4f64-b84b-2a71cc6e5bf8",
+      "name": "Respond - Scanned PDF",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2640,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Read the variant table in this photograph of a clinical genetic test report. The file is named {{ $(\"Sniff The File\").first().json.filename }}.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You transcribe variant tables from photographs of clinical genetic reports. Return ONE LINE PER VARIANT in exactly this pipe-separated format and nothing else: gene|hgvs_c|hgvs_p|zygosity|lab_classification|genome_build. Copy values exactly as printed. Write NONE for any field not printed. If you cannot find a variant table, return exactly NO_VARIANTS_FOUND. Never invent a variant. Never add commentary."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary",
+              "imageDetail": "high"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "26e69cfa-4401-4ad0-acea-2a64d9c0c161",
+      "name": "Read Variant Table From Photo",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2416,
+        416
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ upload_id: $(\"Sniff The File\").first().json.upload_id, status: \"refused\", detected_type: $(\"Sniff The File\").first().json.detected_type, reason: $(\"Sniff The File\").first().json.reason }) }}",
+        "options": {}
+      },
+      "id": "caa4fe8e-f208-4bcc-961c-9eb4ba93632b",
+      "name": "Respond - Not A DNA File",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1552,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const meta = $(\"Sniff The File\").first().json;\nconst raw = ($input.first().json.text || \"\").trim();\nif (!raw || raw.indexOf(\"NO_VARIANTS_FOUND\") !== -1) {\n  return [{ json: { upload_id: meta.upload_id, nothing_found: true } }];\n}\nconst lines = raw.split(/\\r?\\n/);\nconst out = [];\nfor (const line of lines) {\n  if (line.indexOf(\"|\") === -1) { continue; }\n  const c = line.split(\"|\").map(function (x) { return x.trim(); });\n  const clean = function (v) { return (!v || v === \"NONE\") ? null : v; };\n  if (!clean(c[0])) { continue; }\n  out.push({ json: {\n    upload_id: meta.upload_id,\n    source: \"lab_report\",\n    gene: clean(c[0]),\n    hgvs_c: clean(c[1]),\n    hgvs_p: clean(c[2]),\n    zygosity: clean(c[3]),\n    lab_classification: clean(c[4]),\n    genome_build: clean(c[5]),\n    user_confirmed: false\n  } });\n}\nif (out.length === 0) { return [{ json: { upload_id: meta.upload_id, nothing_found: true } }]; }\nreturn out;"
+      },
+      "id": "4dade536-6050-4f0f-97e3-dc3c5b30ee36",
+      "name": "Turn Lines Into Observations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mnbafonstnhdybonknap.supabase.co/rest/v1/observations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ upload_id: $json.upload_id, source: \"lab_report\", gene: $json.gene, hgvs_c: $json.hgvs_c, hgvs_p: $json.hgvs_p, zygosity: $json.zygosity, lab_classification: $json.lab_classification, genome_build: $json.genome_build, user_confirmed: false }) }}",
+        "options": {}
+      },
+      "id": "16104b39-2898-46ac-b2f1-925820636dd5",
+      "name": "Save Observations (B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3088,
+        240
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $(\"Sniff The File\").first().json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"awaiting_confirmation\" }",
+        "options": {}
+      },
+      "id": "ee163de9-9def-4b9b-919a-140f01dd2da4",
+      "name": "Wait For Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3296,
+        240
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ upload_id: $(\"Sniff The File\").first().json.upload_id, path: \"B\", detected_type: $(\"Sniff The File\").first().json.detected_type, status: \"awaiting_confirmation\", needs_confirmation: true }) }}",
+        "options": {}
+      },
+      "id": "6b59dd5a-95b6-4b93-b0ef-185811e87f28",
+      "name": "Respond - Please Confirm",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3520,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## One door\n\nThe user never picks a path. Sniff The File reads the first bytes and decides. A PDF renamed to .txt still goes to Path B, because the bytes say %PDF. The decision is written to uploads.detected_type and uploads.path so it can be audited later.",
+        "height": 256,
+        "width": 608,
+        "color": 3
+      },
+      "id": "263c0e0b-689c-4576-a06f-e5814bde9559",
+      "name": "Sticky Note 6924c1e9",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        848,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## The reduction\n\nKeep Only Panel Positions is where millions of rows become three. The panel is loaded from the database, where it was frozen before any file existed. Rows read and rows discarded are counted so the number can be shown to the user.",
+        "height": 224,
+        "width": 384,
+        "color": 4
+      },
+      "id": "4c4231c0-4a43-4eb5-84ee-150ddf733e20",
+      "name": "Sticky Note cc84db29",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Path B stops here\n\nObservations are written with user_confirmed = false and the workflow ends. Nothing is looked up. Lovable shows the extraction to the user; when they confirm, it calls the Analyse workflow webhook.",
+        "height": 224,
+        "width": 608,
+        "color": 5
+      },
+      "id": "d26a82cd-1f53-4013-bb80-7c42b6908036",
+      "name": "Sticky Note 164d9e67",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2608,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $(\"Download File\").first();\nreturn [{ json: { upload_id: $(\"Sniff The File\").first().json.upload_id }, binary: f.binary }];"
+      },
+      "id": "3d9c4dbb-abfe-4f92-9a18-45b2eadf8a9c",
+      "name": "Bring Back The File (A)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "notes": "HTTP nodes replace the item with their response, so the downloaded file is re-attached here."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "uid",
+              "name": "upload_id",
+              "type": "string",
+              "value": "={{ $(\"Sniff The File\").first().json.upload_id }}"
+            },
+            {
+              "id": "rr",
+              "name": "rows_read",
+              "type": "number",
+              "value": "={{ $(\"Keep Only Panel Positions\").first().json.rows_read }}"
+            },
+            {
+              "id": "rd",
+              "name": "rows_discarded",
+              "type": "number",
+              "value": "={{ $(\"Keep Only Panel Positions\").first().json.rows_discarded }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "93c74505-e698-4b03-9039-b8741c14d93a",
+      "name": "Hand Over Upload Id",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2416,
+        0
+      ],
+      "executeOnce": true,
+      "notes": "The save step returns an empty response, so the upload id is handed to Workflow 2 explicitly."
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $(\"Download File\").first();\nreturn [{ json: { upload_id: $(\"Sniff The File\").first().json.upload_id }, binary: f.binary }];"
+      },
+      "id": "246be4e3-87ef-403a-af1b-b27d98cdc19b",
+      "name": "Bring Back The File (B)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        320
+      ],
+      "notes": "Re-attaches the downloaded file so the PDF reader and the photo reader have something to read."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "fv",
+              "leftValue": "={{ $json.nothing_found !== true }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "2e0784a4-03c4-4605-949f-d96619165e05",
+      "name": "Found Any Variants?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2864,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mnbafonstnhdybonknap.supabase.co/rest/v1/uploads?id=eq.{{ $(\"Sniff The File\").first().json.upload_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"refused\", \"refusal_reason\": \"We could not find a variant table in this report. It may be a test that does not report genetic variants, or the page may be unclear. Nothing was saved.\" }",
+        "options": {}
+      },
+      "id": "9f01c5e8-1753-45aa-a693-f62362bbfc43",
+      "name": "Refuse - No Variant Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3088,
+        480
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "rE4r4kdfXQwRDUCD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ upload_id: $(\"Sniff The File\").first().json.upload_id, status: \"refused\", reason: \"No variant table was found in this report.\" }) }}",
+        "options": {}
+      },
+      "id": "f3e49ad1-e93b-4053-8664-7331ee99c44b",
+      "name": "Respond - No Variant Table",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3296,
+        480
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Upload": {
+      "main": [
+        [
+          {
+            "node": "Read Upload Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Upload Id": {
+      "main": [
+        [
+          {
+            "node": "Get Upload Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Upload Row": {
+      "main": [
+        [
+          {
+            "node": "Download File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "main": [
+        [
+          {
+            "node": "Sniff The File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sniff The File": {
+      "main": [
+        [
+          {
+            "node": "Save Routing Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Routing Decision": {
+      "main": [
+        [
+          {
+            "node": "Path A or Path B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Path A or Path B": {
+      "main": [
+        [
+          {
+            "node": "Load Frozen Panel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bring Back The File (B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Not A DNA File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Only Panel Positions": {
+      "main": [
+        [
+          {
+            "node": "Save Observations (A)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Analysis": {
+      "main": [
+        [
+          {
+            "node": "Respond - Findings Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF or Photo?": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Variant Table From Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Did We Get Text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did We Get Text?": {
+      "main": [
+        [
+          {
+            "node": "Read Variant Table",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse - Scanned PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Variant Table": {
+      "main": [
+        [
+          {
+            "node": "Turn Lines Into Observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Read Variant Table",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Read Variant Table From Photo",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refuse - Scanned PDF": {
+      "main": [
+        [
+          {
+            "node": "Respond - Scanned PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Variant Table From Photo": {
+      "main": [
+        [
+          {
+            "node": "Turn Lines Into Observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Observations (B)": {
+      "main": [
+        [
+          {
+            "node": "Wait For Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond - Please Confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Frozen Panel": {
+      "main": [
+        [
+          {
+            "node": "Bring Back The File (A)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bring Back The File (A)": {
+      "main": [
+        [
+          {
+            "node": "Keep Only Panel Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Observations (A)": {
+      "main": [
+        [
+          {
+            "node": "Hand Over Upload Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hand Over Upload Id": {
+      "main": [
+        [
+          {
+            "node": "Run Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bring Back The File (B)": {
+      "main": [
+        [
+          {
+            "node": "PDF or Photo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Turn Lines Into Observations": {
+      "main": [
+        [
+          {
+            "node": "Found Any Variants?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found Any Variants?": {
+      "main": [
+        [
+          {
+            "node": "Save Observations (B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse - No Variant Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refuse - No Variant Table": {
+      "main": [
+        [
+          {
+            "node": "Respond - No Variant Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "ff11163a-ec36-4289-9127-87072e895fcd",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "72cd8a9c585fc491d37ca0e0193e20ba9be3f77efc223c1299d366e51dcafe33"
+  },
+  "nodeGroups": [
+    {
+      "id": "7ad408dc-30b6-4bbe-b9cf-6012fc1b590c",
+      "name": "Intake",
+      "nodeIds": [
+        "894cd8d4-0647-4a6e-be9f-63ec4a41f39b",
+        "1b800ef1-aaa2-4649-ab1a-f481524786e1",
+        "a8473675-d7b0-476e-9983-40255ab87021",
+        "c79dff84-a362-4bea-a71d-0d47361411f3",
+        "e9593a23-889c-4671-a333-c86581472c0b"
+      ],
+      "description": "Fetches the upload row, downloads the file, reads its first bytes to decide the path, and records that decision."
+    },
+    {
+      "id": "0beea57d-0dfe-4c37-ae48-13c1cdef6036",
+      "name": "Path A - raw DNA file",
+      "nodeIds": [
+        "cdfe53da-d6d8-4542-824b-b40526a37830",
+        "3d9c4dbb-abfe-4f92-9a18-45b2eadf8a9c",
+        "545f2097-51ec-4d1a-b981-da50148a81a2",
+        "c7a6ff4d-1c14-4da1-a3cf-459a4239dd03",
+        "93c74505-e698-4b03-9039-b8741c14d93a",
+        "31ac70d4-a7af-4d0c-b636-82b0d4d38d85",
+        "0e7c0ea9-fd8b-4a9c-bb67-d2092602fc04"
+      ],
+      "description": "Loads the frozen panel, keeps only those positions from the file, saves them as confirmed observations, then runs Analyse."
+    },
+    {
+      "id": "9b7bbd70-225c-4855-b2df-ad213df36649",
+      "name": "Path B - save and wait",
+      "nodeIds": [
+        "16104b39-2898-46ac-b2f1-925820636dd5",
+        "ee163de9-9def-4b9b-919a-140f01dd2da4",
+        "6b59dd5a-95b6-4b93-b0ef-185811e87f28"
+      ],
+      "description": "Saves the extracted variants as unconfirmed, then stops and asks the user to check the reading against their report."
+    }
+  ],
+  "id": "tMiMXGlbkYknY6Ng",
+  "tags": []
+}
