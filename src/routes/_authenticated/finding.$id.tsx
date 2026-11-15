@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { AppShell, CheckList, Collapse, DotGrid, FadeUp, Icon, LabelChip, Spinner } from "@/components/kit";
 import { extractGene, extractMarker, extractPct, GENE_INFO, parseChecks, sourceLabel } from "@/lib/genome";
 import { supabase, type Finding } from "@/lib/supabase";
+import { useServerFn } from "@tanstack/react-start";
+import { explainFinding } from "@/lib/explain.functions";
 
 export const Route = createFileRoute("/_authenticated/finding/$id")({
   head: () => ({ meta: [{ title: "One finding — Genome Intelligence" }, { name: "description", content: "What supports this finding and what argues against it." }] }),
@@ -119,6 +121,8 @@ function FindingPage() {
         </div>
       )}
 
+      <AskBox findingId={f.id} />
+
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-card/95 py-3 backdrop-blur">
         <div className="container-app grid max-w-[760px] grid-cols-2 gap-3">
           <Link to="/findings/$id" params={{ id: f.upload_id }} className="btn btn-secondary">All findings</Link>
@@ -178,5 +182,51 @@ function DoubtSheet({ findingId, onClose }: { findingId: string; onClose: () => 
         <button type="button" disabled={!reason || busy} onClick={send} className="btn btn-primary mt-5 w-full">{busy ? "Sending…" : "Send"}</button>
       </div>
     </div>
+  );
+}
+
+function AskBox({ findingId }: { findingId: string }) {
+  const ask = useServerFn(explainFinding);
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (q.trim().length < 3 || busy) return;
+    setBusy(true); setErr(null); setAnswer(null);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s.session?.access_token;
+      if (!token) { setErr("Please log in again."); return; }
+      const r = await ask({ data: { findingId, question: q.trim() }, headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) setAnswer(r.answer); else setErr(r.error);
+    } catch {
+      setErr("We couldn't explain this right now. Please try again.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <section className="card fade-up mt-4 p-5 md:p-6">
+      <h2 className="t-card">Ask about this finding</h2>
+      <p className="mt-1 t-small text-muted-foreground">AI explains the evidence above in plain words. It can't change the label — fixed rules chose that.</p>
+      <form onSubmit={submit} className="mt-4">
+        <label htmlFor="ask-q" className="sr-only">Your question</label>
+        <textarea id="ask-q" value={q} onChange={(e) => setQ(e.target.value)} maxLength={500} rows={3}
+          placeholder="For example: What does this mean for me?"
+          className="w-full rounded-xl border bg-card p-3 text-base" />
+        <button type="submit" className="btn btn-primary mt-3 w-full md:w-auto" disabled={busy || q.trim().length < 3}>
+          {busy ? "Thinking…" : "Explain"}
+        </button>
+      </form>
+      {err && <p className="mt-3 t-small text-amber" role="alert">{err}</p>}
+      {answer && (
+        <div className="mt-4 rounded-xl bg-tint p-4" aria-live="polite">
+          <p className="whitespace-pre-line">{answer}</p>
+          <p className="mt-3 t-small text-muted-foreground">Written by AI from the evidence on this page. Not medical advice.</p>
+        </div>
+      )}
+    </section>
   );
 }
