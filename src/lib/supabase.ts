@@ -11,8 +11,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   },
 });
 
-export const INTAKE = "https://genomeai.app.n8n.cloud/webhook/genome-upload";
-export const ANALYSE = "https://genomeai.app.n8n.cloud/webhook/genome-analyse";
+export const INTAKE = "https://genomeintelligence.app.n8n.cloud/webhook/genome-upload";
+export const ANALYSE = "https://genomeintelligence.app.n8n.cloud/webhook/genome-analyse";
 
 /** Fire-and-forget: never await these, the status column is the source of truth. */
 export function fireWebhook(url: string, uploadId: string) {
