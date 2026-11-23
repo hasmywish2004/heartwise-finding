@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AppShell, DnaStrip, Icon } from "@/components/kit";
-import { ANALYSE, fireWebhook, INTAKE, supabase, type Upload } from "@/lib/supabase";
+import { ANALYSE, clearWebhookFailed, fireWebhook, INTAKE, supabase, webhookFailed, type Upload } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_authenticated/reading/$id")({
   head: () => ({ meta: [{ title: "Reading your file — Genome Intelligence" }, { name: "description", content: "We are reading your file." }] }),
@@ -16,6 +16,7 @@ function Reading() {
   const navigate = useNavigate();
   const [secs, setSecs] = useState(0);
   const [upload, setUpload] = useState<Upload | null>(null);
+  const [unreachable, setUnreachable] = useState(false);
   const startRef = useRef(Date.now());
 
   useEffect(() => {
@@ -26,6 +27,7 @@ function Reading() {
   useEffect(() => {
     let alive = true;
     async function poll() {
+      if (webhookFailed(id)) setUnreachable(true);
       const { data } = await supabase.from("uploads").select("*").eq("id", id).maybeSingle();
       if (!alive || !data) return;
       setUpload(data as Upload);
@@ -42,6 +44,8 @@ function Reading() {
   const slow = secs >= LIMIT;
 
   function retry() {
+    clearWebhookFailed(id);
+    setUnreachable(false);
     fireWebhook(upload?.path === "B" ? ANALYSE : INTAKE, id);
     startRef.current = Date.now();
     setSecs(0);
@@ -77,7 +81,19 @@ function Reading() {
         </ol>
       </div>
 
-      {slow && (
+      {unreachable && (
+        <div role="alert" className="card mt-4 flex flex-col gap-3 border-amber p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <Icon.Alert size={20} className="mt-0.5 shrink-0 text-amber" />
+            <div>
+              <p className="font-semibold text-ink">We couldn't reach the analysis service</p>
+              <p className="mt-1 t-small text-muted-foreground">Your file was saved and nothing was lost — please try again in a moment.</p>
+            </div>
+          </div>
+          <button type="button" onClick={retry} className="btn btn-secondary shrink-0">Try again</button>
+        </div>
+      )}
+      {slow && !unreachable && (
         <div className="card mt-4 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-ink">This is taking longer than usual</p>
           <button type="button" onClick={retry} className="btn btn-secondary">Try again</button>

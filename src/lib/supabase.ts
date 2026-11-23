@@ -11,16 +11,36 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   },
 });
 
-export const INTAKE = "https://genomeintelligence.app.n8n.cloud/webhook/genome-upload";
-export const ANALYSE = "https://genomeintelligence.app.n8n.cloud/webhook/genome-analyse";
+export const INTAKE = "https://subtle-gaur.pikapod.net/webhook/genome-upload";
+export const ANALYSE = "https://subtle-gaur.pikapod.net/webhook/genome-analyse";
 
-/** Fire-and-forget: never await these, the status column is the source of truth. */
+const FAILED_KEY = (id: string) => `webhook-failed:${id}`;
+
+/** True if the last attempt to reach the analysis service for this upload failed. */
+export function webhookFailed(uploadId: string) {
+  return typeof window !== "undefined" && sessionStorage.getItem(FAILED_KEY(uploadId)) === "1";
+}
+
+/** Clear the failure flag (e.g. before retrying). */
+export function clearWebhookFailed(uploadId: string) {
+  if (typeof window !== "undefined") sessionStorage.removeItem(FAILED_KEY(uploadId));
+}
+
+/** Fire-and-forget: never await these, the status column is the source of truth.
+ *  If the service can't even be reached, log it and flag it so the UI can show a retry. */
 export function fireWebhook(url: string, uploadId: string) {
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ upload_id: uploadId }),
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error("Could not reach the analysis service:", err);
+    try {
+      sessionStorage.setItem(FAILED_KEY(uploadId), "1");
+    } catch {
+      /* storage unavailable — console error above still records it */
+    }
+  });
 }
 
 export type Upload = {
